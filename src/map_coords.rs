@@ -25,7 +25,7 @@ impl MapCoords {
         )
     }
 
-    pub fn from_tile_coords(tile_coords: &TileCoords, width: u32) -> Self {
+    pub fn from_tile_coords(tile_coords: &TileCoords, width: u32, height: u32) -> Self {
         let rel_x = ((tile_coords.get_tile_x() as f64) * 1000f64 + (tile_coords.get_x() as f64))
             / (2048f64 * 1000f64); // Relative X
         let rel_y = 1f64
@@ -37,7 +37,7 @@ impl MapCoords {
                 / std::f64::consts::PI
                 - 90f64,
             lng: rel_x * 360f64 - 180f64,
-            zoom: match width {
+            zoom: match std::cmp::max(width, height) {
                 0..1 => 22.0,
                 1..10 => 20.0,
                 10..60 => 17.0,

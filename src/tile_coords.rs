@@ -1,8 +1,19 @@
 pub struct TileCoords {
-    tile_x: u16,
-    tile_y: u16,
-    x: u16,
-    y: u16,
+    pub(crate) tile_x: u16,
+    pub(crate) tile_y: u16,
+    pub(crate) x: u16,
+    pub(crate) y: u16,
+}
+
+pub enum TileCoordsError {
+    StripSuffix,
+    StripPrefix,
+    DeformedTileCoords,
+    ParseError(std::num::ParseIntError),
+    NoTileXCoords,
+    NoTileYCoords,
+    NoXCoords,
+    NoYCoords,
 }
 
 impl TileCoords {
@@ -15,28 +26,29 @@ impl TileCoords {
         }
     }
 
-    pub fn parse_tile_coords_string(v: &str) -> Self {
+    pub fn parse_tile_coords_string(v: &str) -> Result<Self, TileCoordsError> {
         let mut tile_coords = v
             .trim()
             .strip_prefix('(')
-            .expect("Couldn't strip prefix tile coords")
+            .ok_or(TileCoordsError::StripPrefix)?
             .strip_suffix(')')
-            .expect("Couldn't strip suffix tile coords")
+            .ok_or(TileCoordsError::StripSuffix)?
             .split(',')
             .map(|x| {
                 x.split(':')
                     .next_back()
-                    .expect("Deformed tile coords data")
+                    .ok_or(TileCoordsError::DeformedTileCoords)?
                     .trim()
                     .parse::<u16>()
-                    .expect("No number parsing tile coords")
+                    .map_err(TileCoordsError::ParseError)
             });
-        Self {
-            tile_x: tile_coords.next().expect("No Tile X coords found"),
-            tile_y: tile_coords.next().expect("No Tile Y coords found"),
-            x: tile_coords.next().expect("No X coords found"),
-            y: tile_coords.next().expect("No Y coords found"),
-        }
+
+        Ok(Self {
+            tile_x: tile_coords.next().ok_or(TileCoordsError::NoTileXCoords)??,
+            tile_y: tile_coords.next().ok_or(TileCoordsError::NoTileYCoords)??,
+            x: tile_coords.next().ok_or(TileCoordsError::NoXCoords)??,
+            y: tile_coords.next().ok_or(TileCoordsError::NoYCoords)??,
+        })
     }
 
     pub fn get_x(&self) -> u16 {

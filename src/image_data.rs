@@ -1,18 +1,22 @@
 use std::{
     collections::HashMap,
     io::{BufRead, Seek},
-    sync::Arc,
+    rc::Rc,
 };
 
 use image::{GenericImageView, ImageReader};
 
-use crate::color::Color;
+use crate::{color::Color, convert_px_to_hours};
 
 /// Currently only supports PNG
 pub struct ImageData {
-    image: image::DynamicImage,
-    width: u32,
-    height: u32,
+    /// The parsed image
+    pub(crate) image: image::DynamicImage,
+    /// The parsed image's width
+    pub(crate) width: u32,
+    /// The parsed image's height
+    pub(crate) height: u32,
+    /// How many pixels there are of each color
     color_counts: HashMap<Color, u32>,
 }
 
@@ -54,11 +58,10 @@ impl ImageData {
                     Err(_) => return Err(ImageDataError::InvalidColor { x, y, rgba }),
                     Ok(c) => match color_counts.get_mut(&c) {
                         Some(v) => *v += 1,
-                        None => {
-                            color_counts
-                                .insert(c, 1)
-                                .expect("This shouldn't be able to fail");
-                        }
+                        None => unsafe {
+                            // This can never possibly fail
+                            color_counts.insert(c, 1).unwrap_unchecked();
+                        },
                     },
                 }
             }
@@ -93,10 +96,10 @@ impl ImageData {
     }
 
     pub fn get_total_time_hours(&self) -> f64 {
-        (self.get_total_px() as f64) / 120.0
+        convert_px_to_hours(self.get_total_px())
     }
 
-    pub fn get_colors(&self) -> Arc<[Color]> {
+    pub fn get_colors(&self) -> Rc<[Color]> {
         self.get_color_counts().keys().copied().collect()
     }
 }
