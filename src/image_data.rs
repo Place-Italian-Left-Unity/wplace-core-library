@@ -44,26 +44,26 @@ impl ImageData {
         }
 
         let mut color_counts = HashMap::new();
-        for y in 0..height {
-            for x in 0..width {
-                let rgba = unsafe { image.unsafe_get_pixel(x, y).0 };
 
-                if let [_, _, _, 0] = rgba {
-                    // Actually transparent pixels represent any color
-                    continue;
-                };
+        for pixel in image.pixels() {
+            let (x, y, pixel) = pixel;
+            let rgba = pixel.0;
 
-                let color = Color::try_from(rgba);
-                match color {
-                    Err(_) => return Err(ImageDataError::InvalidColor { x, y, rgba }),
-                    Ok(c) => match color_counts.get_mut(&c) {
-                        Some(v) => *v += 1,
-                        None => unsafe {
-                            // This can never possibly fail
-                            color_counts.insert(c, 1).unwrap_unchecked();
-                        },
+            if let [_, _, _, 0] = rgba {
+                // Actually transparent pixels represent any color
+                continue;
+            };
+
+            let color = Color::try_from(rgba);
+            match color {
+                Err(_) => return Err(ImageDataError::InvalidColor { x, y, rgba }),
+                Ok(c) => match color_counts.get_mut(&c) {
+                    Some(v) => *v += 1,
+                    None => unsafe {
+                        // This can never possibly fail
+                        color_counts.insert(c, 1).unwrap_unchecked();
                     },
-                }
+                },
             }
         }
 
