@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    fmt::Display,
     io::{BufRead, Seek},
     rc::Rc,
 };
@@ -20,12 +21,29 @@ pub struct ImageData {
     color_counts: HashMap<Color, u32>,
 }
 
+#[derive(Debug)]
 pub enum ImageDataError {
     ImageError(image::error::ImageError),
     InvalidWidth,
     InvalidHeight,
     InvalidColor { x: u32, y: u32, rgba: [u8; 4] },
 }
+
+impl Display for ImageDataError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidWidth => write!(f, "Width is 0"),
+            Self::InvalidHeight => write!(f, "Height is 0"),
+            Self::ImageError(e) => write!(f, "Image Error: {e}"),
+            Self::InvalidColor {
+                x,
+                y,
+                rgba: [r, g, b, a],
+            } => write!(f, "Invalid color [{r},{g},{b},{a}] at {x}, {y}"),
+        }
+    }
+}
+impl std::error::Error for ImageDataError {}
 
 impl ImageData {
     pub fn new<R: BufRead + Seek>(image_bytes: R) -> Result<Self, ImageDataError> {

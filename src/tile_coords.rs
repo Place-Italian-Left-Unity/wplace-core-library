@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 pub struct TileCoords {
     pub(crate) tile_x: u16,
     pub(crate) tile_y: u16,
@@ -5,6 +7,7 @@ pub struct TileCoords {
     pub(crate) y: u16,
 }
 
+#[derive(Debug)]
 pub enum TileCoordsError {
     StripSuffix,
     StripPrefix,
@@ -15,6 +18,23 @@ pub enum TileCoordsError {
     NoXCoords,
     NoYCoords,
 }
+
+impl Display for TileCoordsError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::StripSuffix => write!(f, "Strip Suffix"),
+            Self::StripPrefix => write!(f, "Strip Prefix"),
+            Self::DeformedTileCoords => write!(f, "Deformed TileCoords"),
+            Self::ParseError(e) => write!(f, "Parse Error: {e}"),
+            Self::NoTileXCoords => write!(f, "No Tile X Coords"),
+            Self::NoTileYCoords => write!(f, "No Tile Y Coords"),
+            Self::NoXCoords => write!(f, "No X Coords"),
+            Self::NoYCoords => write!(f, "No Y Coords"),
+        }
+    }
+}
+
+impl std::error::Error for TileCoordsError {}
 
 impl TileCoords {
     pub fn new(tile_x: u16, tile_y: u16, x: u16, y: u16) -> Self {

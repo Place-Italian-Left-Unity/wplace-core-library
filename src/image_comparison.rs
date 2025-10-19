@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, fmt::Display, rc::Rc};
 
 use image::{GenericImage, GenericImageView};
 
@@ -10,10 +10,26 @@ pub struct ImageComparison {
     difference_color_count: HashMap<Color, u32>,
 }
 
-pub enum ImageDataCompareError {
+#[derive(Debug)]
+pub enum ImageComparisonError {
     IncongruentWidth,
     IncongruentHeight,
 }
+
+impl Display for ImageComparisonError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::IncongruentHeight => "Incongruent Heights",
+                Self::IncongruentWidth => "Incongruent Widths",
+            }
+        )
+    }
+}
+
+impl std::error::Error for ImageComparisonError {}
 
 impl ImageComparison {
     /// * `template_image` - Template of the image one is looking at
@@ -21,13 +37,13 @@ impl ImageComparison {
     pub fn compare_images(
         template_image: &ImageData,
         current_image: &ImageData,
-    ) -> Result<Self, ImageDataCompareError> {
+    ) -> Result<Self, ImageComparisonError> {
         if template_image.height != current_image.height {
-            return Err(ImageDataCompareError::IncongruentHeight);
+            return Err(ImageComparisonError::IncongruentHeight);
         }
 
         if template_image.width != current_image.width {
-            return Err(ImageDataCompareError::IncongruentWidth);
+            return Err(ImageComparisonError::IncongruentWidth);
         }
 
         // This map will also become the missing colors output

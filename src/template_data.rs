@@ -1,4 +1,4 @@
-use std::io::BufReader;
+use std::{fmt::Display, io::BufReader};
 
 use crate::{
     image_data::{ImageData, ImageDataError},
@@ -13,11 +13,23 @@ pub struct TemplateData {
     image: ImageData,
 }
 
+#[derive(Debug)]
 pub enum TemplateDataError {
     IoError(std::io::Error),
     ImageDataError(ImageDataError),
     TileCoordsError(TileCoordsError),
 }
+
+impl Display for TemplateDataError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::IoError(e) => write!(f, "IO Error: {e}"),
+            Self::ImageDataError(e) => write!(f, "ImageData Error: {e}"),
+            Self::TileCoordsError(e) => write!(f, "TileCoords Error: {e}"),
+        }
+    }
+}
+impl std::error::Error for TemplateDataError {}
 
 impl TemplateData {
     pub fn from_data<P: AsRef<std::path::Path>>(
