@@ -1,4 +1,4 @@
-use std::{fmt::Display, io::BufReader};
+use std::fmt::Display;
 
 use crate::{
     image_data::{ImageData, ImageDataError},
@@ -39,9 +39,11 @@ impl TemplateData {
     ) -> Result<Self, TemplateDataError> {
         let top_left_corner = TileCoords::parse_tile_coords_string(top_left_corner_coords_str)
             .map_err(TemplateDataError::TileCoordsError)?;
-        let image = ImageData::new(BufReader::new(
-            std::fs::File::open(file_path).map_err(TemplateDataError::IoError)?,
-        ))
+        let image = ImageData::new(
+            std::fs::read(file_path)
+                .map_err(TemplateDataError::IoError)?
+                .as_slice(),
+        )
         .map_err(TemplateDataError::ImageDataError)?;
         Ok(Self::new(name, top_left_corner, image))
     }
@@ -62,6 +64,15 @@ impl TemplateData {
             top_left_corner,
             image,
         }
+    }
+
+    pub fn get_template_area(&self) -> Result<ImageData, TemplateDataError> {
+        ImageData::from_site_coords(
+            &self.top_left_corner,
+            self.image.width as u16,
+            self.image.height as u16,
+        )
+        .map_err(TemplateDataError::ImageDataError)
     }
 
     pub fn get_name(&self) -> &str {
