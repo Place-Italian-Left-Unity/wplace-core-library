@@ -2,7 +2,7 @@ use std::{collections::HashMap, fmt::Display, rc::Rc};
 
 use image::{GenericImage, GenericImageView};
 
-use crate::{color::Color, image_data::ImageData};
+use crate::{color::Color, convert_px_to_hours, image_data::ImageData};
 
 pub struct ImageComparison {
     difference_image: image::RgbaImage,
@@ -46,27 +46,7 @@ impl ImageComparison {
             return Err(ImageComparisonError::IncongruentWidth);
         }
 
-        // This map will also become the missing colors output
-        let mut template_colors = template_image.get_color_counts().clone();
-        let current_colors = current_image.get_color_counts();
-
-        for color in template_image.get_colors().iter() {
-            let count_in_current = match current_colors.get(color) {
-                Some(v) => *v,
-                None => 0,
-            };
-
-            let count_in_template = unsafe { template_colors.get_mut(color).unwrap_unchecked() };
-
-            *count_in_template -= count_in_current;
-            if *count_in_template == 0 {
-                unsafe {
-                    template_colors.remove(color).unwrap_unchecked();
-                }
-            }
-        }
-
-        let difference_color_count = template_colors;
+        let mut difference_color_count = HashMap::new();
 
         let mut difference_image =
             image::ImageBuffer::new(template_image.width, template_image.height)
@@ -74,20 +54,24 @@ impl ImageComparison {
 
         let mut different_px = Vec::new();
 
-        for y in 0..template_image.height {
-            for x in 0..template_image.width {
-                if unsafe { template_image.image.unsafe_get_pixel(x, y).0 }
-                    != unsafe { current_image.image.unsafe_get_pixel(x, y).0 }
-                {
-                    different_px.push((x, y));
-                    unsafe {
-                        difference_image.unsafe_put_pixel(
-                            x,
-                            y,
-                            image::Rgba::from([255, 0, 255, 255]),
-                        );
-                    }
+        for (x, y, pixel) in template_image.image.pixels() {
+            if pixel.0 == unsafe { current_image.image.unsafe_get_pixel(x, y).0 } {
+                continue;
+            }
+
+            // Color validity can't fail because it has been checked in the Image already
+            let color = unsafe { Color::try_from(pixel.0).unwrap_unchecked() };
+
+            match difference_color_count.get_mut(&color) {
+                Some(v) => *v += 1,
+                None => {
+                    let _ = difference_color_count.insert(color, 1);
                 }
+            }
+
+            different_px.push((x, y));
+            unsafe {
+                difference_image.unsafe_put_pixel(x, y, image::Rgba::from([255, 0, 255, 255]));
             }
         }
 
@@ -108,5 +92,13 @@ impl ImageComparison {
 
     pub fn get_different_px(&self) -> Rc<[(u32, u32)]> {
         self.different_px.clone()
+    }
+
+    pub fn get_total_different_px(&self) -> u32 {
+        self.difference_color_count.values().sum()
+    }
+
+    pub fn get_total_time_hours(&self) -> f64 {
+        convert_px_to_hours(self.get_total_different_px())
     }
 }
