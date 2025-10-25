@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Display, rc::Rc};
 
-use image::{DynamicImage, GenericImageView, ImageBuffer, Rgba};
+use image::{DynamicImage, GenericImageView, ImageBuffer, ImageReader, Rgba};
 
 use crate::{GenericBytes, color::Color, convert_px_to_hours, tile_coords::TileCoords};
 
@@ -19,6 +19,7 @@ pub struct ImageData {
 #[derive(Debug)]
 pub enum ImageDataError {
     ImageError(image::error::ImageError),
+    IoError(std::io::Error),
     InvalidWidth,
     InvalidHeight,
     InvalidColor { x: u32, y: u32, rgba: [u8; 4] },
@@ -30,6 +31,7 @@ impl Display for ImageDataError {
             Self::InvalidWidth => write!(f, "Width is 0"),
             Self::InvalidHeight => write!(f, "Height is 0"),
             Self::ImageError(e) => write!(f, "Image Error: {e}"),
+            Self::IoError(e) => write!(f, "I/O Error: {e}"),
             Self::InvalidColor {
                 x,
                 y,
@@ -48,6 +50,14 @@ impl IntoImageForImageData for &[u8] {
     fn into_image_for_image_data(self) -> Result<DynamicImage, ImageDataError> {
         image::load_from_memory_with_format(self, image::ImageFormat::Png)
             .map_err(ImageDataError::ImageError)
+    }
+}
+
+impl IntoImageForImageData for &std::path::Path {
+    fn into_image_for_image_data(self) -> Result<DynamicImage, ImageDataError> {
+        let mut reader = ImageReader::open(self).map_err(ImageDataError::IoError)?;
+        reader.set_format(image::ImageFormat::Png);
+        reader.decode().map_err(ImageDataError::ImageError)
     }
 }
 
