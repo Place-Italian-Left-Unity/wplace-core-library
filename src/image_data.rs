@@ -1,13 +1,8 @@
-use std::{
-    collections::HashMap,
-    fmt::Display,
-    io::{BufRead, Seek},
-    rc::Rc,
-};
+use std::{collections::HashMap, fmt::Display, rc::Rc};
 
-use image::{GenericImageView, ImageReader};
+use image::{DynamicImage, GenericImageView, ImageBuffer, Rgba};
 
-use crate::{color::Color, convert_px_to_hours};
+use crate::{GenericBytes, color::Color, convert_px_to_hours, tile_coords::TileCoords};
 
 /// Currently only supports PNG
 pub struct ImageData {
@@ -45,11 +40,32 @@ impl Display for ImageDataError {
 }
 impl std::error::Error for ImageDataError {}
 
+pub trait IntoImageForImageData {
+    fn into_image_for_image_data(self) -> Result<DynamicImage, ImageDataError>;
+}
+
+impl IntoImageForImageData for &[u8] {
+    fn into_image_for_image_data(self) -> Result<DynamicImage, ImageDataError> {
+        image::load_from_memory_with_format(self, image::ImageFormat::Png)
+            .map_err(ImageDataError::ImageError)
+    }
+}
+
+impl IntoImageForImageData for DynamicImage {
+    fn into_image_for_image_data(self) -> Result<DynamicImage, ImageDataError> {
+        Ok(self)
+    }
+}
+
+impl IntoImageForImageData for ImageBuffer<Rgba<u8>, Vec<u8>> {
+    fn into_image_for_image_data(self) -> Result<DynamicImage, ImageDataError> {
+        Ok(DynamicImage::ImageRgba8(self))
+    }
+}
+
 impl ImageData {
-    pub fn new<R: BufRead + Seek>(image_bytes: R) -> Result<Self, ImageDataError> {
-        let mut image_reader = ImageReader::new(image_bytes);
-        image_reader.set_format(image::ImageFormat::Png);
-        let image = image_reader.decode().map_err(ImageDataError::ImageError)?;
+    pub fn new<R: IntoImageForImageData>(into_image_type: R) -> Result<Self, ImageDataError> {
+        let image = into_image_type.into_image_for_image_data()?;
 
         let width = image.width();
         if width == 0 {
@@ -63,8 +79,7 @@ impl ImageData {
 
         let mut color_counts = HashMap::new();
 
-        for pixel in image.pixels() {
-            let (x, y, pixel) = pixel;
+        for (x, y, pixel) in image.pixels() {
             let rgba = pixel.0;
 
             if let [_, _, _, 0] = rgba {
@@ -77,10 +92,9 @@ impl ImageData {
                 Err(_) => return Err(ImageDataError::InvalidColor { x, y, rgba }),
                 Ok(c) => match color_counts.get_mut(&c) {
                     Some(v) => *v += 1,
-                    None => unsafe {
-                        // This can never possibly fail
-                        color_counts.insert(c, 1).unwrap_unchecked();
-                    },
+                    None => {
+                        let _ = color_counts.insert(c, 1);
+                    }
                 },
             }
         }
@@ -91,6 +105,81 @@ impl ImageData {
             height,
             color_counts,
         })
+    }
+
+    pub fn from_site_coords(
+        top_left_corner: &TileCoords,
+        width: u16,
+        height: u16,
+    ) -> Result<Self, ImageDataError> {
+        let last_tile_x = top_left_corner.tile_x + ((top_left_corner.x + width) / 1000);
+        let last_tile_y = top_left_corner.tile_y + ((top_left_corner.y + height) / 1000);
+
+        let global_x_offset =
+            (top_left_corner.tile_x as usize) * 1000 + (top_left_corner.x as usize);
+        let global_y_offset =
+            (top_left_corner.tile_y as usize) * 1000 + (top_left_corner.y as usize);
+
+        let mut new_image = image::ImageBuffer::new(width as u32, height as u32);
+
+        for (tile_x, tile_y) in itertools::iproduct!(
+            top_left_corner.tile_x..=last_tile_x,
+            top_left_corner.tile_y..=last_tile_y
+        ) {
+            let url = format!("https://backend.wplace.live/files/s0/tiles/{tile_x}/{tile_y}.png");
+
+            // let mut cursor = std::io::Cursor::new(Vec::<u8>::with_capacity(2_000_000));
+            // let mut curl_client = curl::easy::Easy2::new(GenericBytesCursor(&mut cursor));
+            // let mut tile_image = ImageReader::new(cursor);
+
+            let mut curl_client =
+                curl::easy::Easy2::new(GenericBytes(Vec::with_capacity(2_000_000)));
+            curl_client.url(&url).expect("Couldn't select url");
+            curl_client.perform().expect("Couldn't perform");
+
+            // tile_image.set_format(image::ImageFormat::Png);
+            // let tile_image = tile_image.decode().map_err(ImageDataError::ImageError)?;
+
+            let tile = image::load_from_memory_with_format(
+                &curl_client.get_ref().0,
+                image::ImageFormat::Png,
+            )
+            .map_err(ImageDataError::ImageError)?;
+
+            let initial_x_in_tile = match top_left_corner.tile_x == tile_x {
+                true => top_left_corner.x,
+                false => 0,
+            };
+
+            let initial_y_in_tile = match top_left_corner.tile_y == tile_y {
+                true => top_left_corner.y,
+                false => 0,
+            };
+
+            let final_x_in_tile = match last_tile_x == tile_x {
+                true => top_left_corner.x + width - 1000 * (last_tile_x - top_left_corner.tile_x),
+                false => 1000,
+            };
+
+            let final_y_in_tile = match last_tile_y == tile_y {
+                true => top_left_corner.y + height - 1000 * (last_tile_y - top_left_corner.tile_y),
+                false => 1000,
+            };
+
+            for (x_in_tile, y_in_tile) in itertools::iproduct!(
+                initial_x_in_tile..final_x_in_tile,
+                initial_y_in_tile..final_y_in_tile
+            ) {
+                let pixel = unsafe { tile.unsafe_get_pixel(x_in_tile as u32, y_in_tile as u32) };
+                let x_global_offset = (tile_x as usize) * 1000 + (x_in_tile as usize);
+                let y_global_offset = (tile_y as usize) * 1000 + (y_in_tile as usize);
+                let x_in_image = x_global_offset - global_x_offset;
+                let y_in_image = y_global_offset - global_y_offset;
+                new_image.put_pixel(x_in_image as u32, y_in_image as u32, pixel);
+            }
+        }
+
+        Self::new(new_image)
     }
 
     pub fn get_image(&self) -> &image::DynamicImage {
