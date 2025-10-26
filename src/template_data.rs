@@ -11,6 +11,7 @@ pub struct TemplateData {
     top_left_corner: TileCoords,
     center_coordinates: MapCoords,
     image: ImageData,
+    file_name: String
 }
 
 #[derive(Debug)]
@@ -18,6 +19,7 @@ pub enum TemplateDataError {
     IoError(std::io::Error),
     ImageDataError(ImageDataError),
     TileCoordsError(TileCoordsError),
+    NoFileName
 }
 
 impl Display for TemplateDataError {
@@ -26,6 +28,7 @@ impl Display for TemplateDataError {
             Self::IoError(e) => write!(f, "IO Error: {e}"),
             Self::ImageDataError(e) => write!(f, "ImageData Error: {e}"),
             Self::TileCoordsError(e) => write!(f, "TileCoords Error: {e}"),
+            Self::NoFileName => write!(f, "No file name")
         }
     }
 }
@@ -39,16 +42,18 @@ impl TemplateData {
     ) -> Result<Self, TemplateDataError> {
         let top_left_corner = TileCoords::parse_tile_coords_string(top_left_corner_coords_str)
             .map_err(TemplateDataError::TileCoordsError)?;
+        let file_path = file_path.as_ref();
+        let file_name = file_path.file_name().ok_or(TemplateDataError::NoFileName)?.to_str().ok_or(TemplateDataError::NoFileName)?;
         let image = ImageData::new(
             std::fs::read(file_path)
                 .map_err(TemplateDataError::IoError)?
                 .as_slice(),
         )
         .map_err(TemplateDataError::ImageDataError)?;
-        Ok(Self::new(name, top_left_corner, image))
+        Ok(Self::new(name, top_left_corner, file_name, image))
     }
 
-    pub fn new(name: impl ToString, top_left_corner: TileCoords, image: ImageData) -> Self {
+    pub fn new(name: impl ToString, top_left_corner: TileCoords, file_name: impl ToString, image: ImageData) -> Self {
         Self {
             name: name.to_string(),
             center_coordinates: MapCoords::from_tile_coords(
@@ -61,6 +66,7 @@ impl TemplateData {
                 image.width,
                 image.height,
             ),
+            file_name: file_name.to_string(),
             top_left_corner,
             image,
         }
@@ -85,6 +91,10 @@ impl TemplateData {
 
     pub fn get_image(&self) -> &ImageData {
         &self.image
+    }
+    
+    pub fn get_file_name(&self) -> &str {
+        &self.file_name
     }
 
     pub fn get_center_coordiantes(&self) -> &MapCoords {
