@@ -1,4 +1,6 @@
-use crate::tile_coords::TileCoords;
+use std::fmt::Display;
+
+use crate::{GenericBytes, tile_coords::TileCoords};
 
 pub struct MapCoords {
     lat: f64,
