@@ -24,9 +24,12 @@ impl MapCoords {
             self.get_zoom()
         )
     }
-    
+
     pub fn get_nominatim_link(&self) -> String {
-        format!("https://nominatim.openstreetmap.org/reverse?lat={}&lon={}&zoom=13&format=jsonv2", self.lat, self.lng)
+        format!(
+            "https://nominatim.openstreetmap.org/reverse?lat={}&lon={}&zoom=13&format=jsonv2",
+            self.lat, self.lng
+        )
     }
 
     pub fn from_tile_coords(tile_coords: &TileCoords, width: u32, height: u32) -> Self {
