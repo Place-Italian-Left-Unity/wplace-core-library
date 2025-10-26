@@ -3,6 +3,7 @@ use std::fmt::Display;
 use crate::{
     image_data::{ImageData, ImageDataError},
     map_coords::MapCoords,
+    nominatim_data::{NominatimData, NominatimDataError},
     tile_coords::{TileCoords, TileCoordsError},
 };
 
@@ -10,6 +11,7 @@ pub struct TemplateData {
     name: String,
     top_left_corner: TileCoords,
     center_coordinates: MapCoords,
+    nominatim_data: NominatimData,
     image: ImageData,
     file_name: String,
 }
@@ -19,6 +21,7 @@ pub enum TemplateDataError {
     IoError(std::io::Error),
     ImageDataError(ImageDataError),
     TileCoordsError(TileCoordsError),
+    NominatimDataError(NominatimDataError),
     NoFileName,
 }
 
@@ -28,6 +31,7 @@ impl Display for TemplateDataError {
             Self::IoError(e) => write!(f, "IO Error: {e}"),
             Self::ImageDataError(e) => write!(f, "ImageData Error: {e}"),
             Self::TileCoordsError(e) => write!(f, "TileCoords Error: {e}"),
+            Self::NominatimDataError(e) => write!(f, "NominatimData Error: {e}"),
             Self::NoFileName => write!(f, "No file name"),
         }
     }
@@ -54,7 +58,7 @@ impl TemplateData {
                 .as_slice(),
         )
         .map_err(TemplateDataError::ImageDataError)?;
-        Ok(Self::new(name, top_left_corner, file_name, image))
+        Self::new(name, top_left_corner, file_name, image)
     }
 
     pub fn new(
@@ -62,23 +66,34 @@ impl TemplateData {
         top_left_corner: TileCoords,
         file_name: impl ToString,
         image: ImageData,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, TemplateDataError> {
+        let center_coordinates = MapCoords::from_tile_coords(
+            &TileCoords {
+                tile_x: top_left_corner.tile_x,
+                tile_y: top_left_corner.tile_y,
+                x: top_left_corner.x + (image.width as u16),
+                y: top_left_corner.y + (image.height as u16),
+            },
+            image.width,
+            image.height,
+        );
+        Ok(Self {
             name: name.to_string(),
-            center_coordinates: MapCoords::from_tile_coords(
-                &TileCoords {
-                    tile_x: top_left_corner.tile_x,
-                    tile_y: top_left_corner.tile_y,
-                    x: top_left_corner.x + (image.width as u16),
-                    y: top_left_corner.y + (image.height as u16),
-                },
-                image.width,
-                image.height,
-            ),
             file_name: file_name.to_string(),
             top_left_corner,
+            nominatim_data: match NominatimData::load_data(&center_coordinates) {
+                Ok(v) => v,
+                Err(NominatimDataError::JSONDeserializeError {
+                    error: _,
+                    input_value: s,
+                }) if s.contains("Unable to geocode") => NominatimData {
+                    display_name: String::from("Unknown"),
+                },
+                Err(e) => return Err(TemplateDataError::NominatimDataError(e)),
+            },
+            center_coordinates,
             image,
-        }
+        })
     }
 
     pub fn get_template_area(&self) -> Result<ImageData, TemplateDataError> {
@@ -92,6 +107,10 @@ impl TemplateData {
 
     pub fn get_name(&self) -> &str {
         &self.name
+    }
+
+    pub fn get_nominatim_data(&self) -> &NominatimData {
+        &self.nominatim_data
     }
 
     pub fn get_top_left_corner(&self) -> &TileCoords {

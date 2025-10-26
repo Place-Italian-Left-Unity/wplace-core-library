@@ -1,6 +1,4 @@
-use std::fmt::Display;
-
-use crate::{GenericBytes, tile_coords::TileCoords};
+use crate::tile_coords::TileCoords;
 
 pub struct MapCoords {
     lat: f64,
@@ -29,7 +27,7 @@ impl MapCoords {
 
     pub fn get_nominatim_link(&self) -> String {
         format!(
-            "https://nominatim.openstreetmap.org/reverse?lat={}&lon={}&zoom=13&format=jsonv2",
+            "https://nominatim.openstreetmap.org/reverse?lat={}&lon={}&zoom=13&format=jsonv2&addressdetails=0",
             self.lat, self.lng
         )
     }
