@@ -2,7 +2,10 @@ use std::{collections::HashMap, fmt::Display, rc::Rc};
 
 use image::{DynamicImage, GenericImageView, ImageBuffer, ImageReader, Rgba};
 
-use crate::{GenericBytes, color::Color, convert_px_to_hours, tile_coords::TileCoords};
+use crate::{
+    color::Color, convert_px_to_hours, tile_coords::TileCoords,
+    tile_downloader::TileDownloader,
+};
 
 /// Currently only supports PNG
 pub struct ImageData {
@@ -136,25 +139,8 @@ impl ImageData {
             top_left_corner.tile_x..=last_tile_x,
             top_left_corner.tile_y..=last_tile_y
         ) {
-            let url = format!("https://backend.wplace.live/files/s0/tiles/{tile_x}/{tile_y}.png");
-
-            // let mut cursor = std::io::Cursor::new(Vec::<u8>::with_capacity(2_000_000));
-            // let mut curl_client = curl::easy::Easy2::new(GenericBytesCursor(&mut cursor));
-            // let mut tile_image = ImageReader::new(cursor);
-
-            let mut curl_client =
-                curl::easy::Easy2::new(GenericBytes(Vec::with_capacity(2_000_000)));
-            curl_client.url(&url).expect("Couldn't select url");
-            curl_client.perform().expect("Couldn't perform");
-
-            // tile_image.set_format(image::ImageFormat::Png);
-            // let tile_image = tile_image.decode().map_err(ImageDataError::ImageError)?;
-
-            let tile = image::load_from_memory_with_format(
-                &curl_client.get_ref().0,
-                image::ImageFormat::Png,
-            )
-            .map_err(ImageDataError::ImageError)?;
+            let tile =
+                TileDownloader::download(tile_x, tile_y).map_err(ImageDataError::ImageError)?;
 
             let initial_x_in_tile = match top_left_corner.tile_x == tile_x {
                 true => top_left_corner.x,

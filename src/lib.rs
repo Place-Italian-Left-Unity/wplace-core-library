@@ -9,6 +9,7 @@ pub mod map_coords;
 pub mod nominatim_data;
 pub mod template_data;
 pub mod tile_coords;
+pub mod tile_downloader;
 
 #[inline(always)]
 pub fn convert_px_to_hours(px: u32) -> f64 {
