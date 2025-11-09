@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use crate::{GenericBytes, map_coords::MapCoords};
 
 #[derive(serde::Deserialize)]
@@ -7,26 +5,14 @@ pub struct NominatimData {
     pub(crate) display_name: String,
 }
 
-#[derive(Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum NominatimDataError {
+    #[error("JSON Deserialize Error: {error}; {input_value}")]
     JSONDeserializeError {
         error: serde_json::Error,
         input_value: String,
     },
 }
-
-impl Display for NominatimDataError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::JSONDeserializeError {
-                error: e,
-                input_value: s,
-            } => write!(f, "JSON Deserialize Error: {e}; {s}"),
-        }
-    }
-}
-
-impl std::error::Error for NominatimDataError {}
 
 static mut LAST_REQUEST: std::time::SystemTime = std::time::UNIX_EPOCH;
 

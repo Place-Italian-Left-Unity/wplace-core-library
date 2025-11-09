@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use crate::{
     image_data::{ImageData, ImageDataError},
     map_coords::MapCoords,
@@ -16,27 +14,19 @@ pub struct TemplateData {
     file_name: String,
 }
 
-#[derive(Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum TemplateDataError {
-    IoError(std::io::Error),
-    ImageDataError(ImageDataError),
-    TileCoordsError(TileCoordsError),
-    NominatimDataError(NominatimDataError),
+    #[error("I/O Error: {0}")]
+    IoError(#[from] std::io::Error),
+    #[error("ImageData Error: {0}")]
+    ImageDataError(#[from] ImageDataError),
+    #[error("TileCoords Error: {0}")]
+    TileCoordsError(#[from] TileCoordsError),
+    #[error("NominatimData Error: {0}")]
+    NominatimDataError(#[from] NominatimDataError),
+    #[error("No file name")]
     NoFileName,
 }
-
-impl Display for TemplateDataError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::IoError(e) => write!(f, "IO Error: {e}"),
-            Self::ImageDataError(e) => write!(f, "ImageData Error: {e}"),
-            Self::TileCoordsError(e) => write!(f, "TileCoords Error: {e}"),
-            Self::NominatimDataError(e) => write!(f, "NominatimData Error: {e}"),
-            Self::NoFileName => write!(f, "No file name"),
-        }
-    }
-}
-impl std::error::Error for TemplateDataError {}
 
 impl TemplateData {
     pub fn from_data<P: AsRef<std::path::Path>>(
@@ -44,20 +34,14 @@ impl TemplateData {
         top_left_corner_coords_str: &str,
         file_path: P,
     ) -> Result<Self, TemplateDataError> {
-        let top_left_corner = TileCoords::parse_tile_coords_string(top_left_corner_coords_str)
-            .map_err(TemplateDataError::TileCoordsError)?;
+        let top_left_corner = TileCoords::parse_tile_coords_string(top_left_corner_coords_str)?;
         let file_path = file_path.as_ref();
         let file_name = file_path
             .file_name()
             .ok_or(TemplateDataError::NoFileName)?
             .to_str()
             .ok_or(TemplateDataError::NoFileName)?;
-        let image = ImageData::new(
-            std::fs::read(file_path)
-                .map_err(TemplateDataError::IoError)?
-                .as_slice(),
-        )
-        .map_err(TemplateDataError::ImageDataError)?;
+        let image = ImageData::new(std::fs::read(file_path)?.as_slice())?;
         Self::new(name, top_left_corner, file_name, image)
     }
 
@@ -102,7 +86,7 @@ impl TemplateData {
             self.image.width as u16,
             self.image.height as u16,
         )
-        .map_err(TemplateDataError::ImageDataError)
+        .map_err(From::from)
     }
 
     pub fn get_name(&self) -> &str {

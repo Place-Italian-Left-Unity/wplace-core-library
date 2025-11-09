@@ -1,10 +1,9 @@
-use std::{collections::HashMap, fmt::Display, rc::Rc};
+use std::{collections::HashMap, rc::Rc};
 
 use image::{DynamicImage, GenericImageView, ImageBuffer, ImageReader, Rgba};
 
 use crate::{
-    color::Color, convert_px_to_hours, tile_coords::TileCoords,
-    tile_downloader::TileDownloader,
+    color::Color, convert_px_to_hours, tile_coords::TileCoords, tile_downloader::TileDownloader,
 };
 
 /// Currently only supports PNG
@@ -19,31 +18,19 @@ pub struct ImageData {
     color_counts: HashMap<Color, u32>,
 }
 
-#[derive(Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum ImageDataError {
-    ImageError(image::error::ImageError),
-    IoError(std::io::Error),
+    #[error("Image Error: {0}")]
+    ImageError(#[from] image::error::ImageError),
+    #[error("I/O Error: {0}")]
+    IoError(#[from] std::io::Error),
+    #[error("Width is 0")]
     InvalidWidth,
+    #[error("Height is 0")]
     InvalidHeight,
+    #[error("Invalid color at {x}, {y}")]
     InvalidColor { x: u32, y: u32, rgba: [u8; 4] },
 }
-
-impl Display for ImageDataError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::InvalidWidth => write!(f, "Width is 0"),
-            Self::InvalidHeight => write!(f, "Height is 0"),
-            Self::ImageError(e) => write!(f, "Image Error: {e}"),
-            Self::IoError(e) => write!(f, "I/O Error: {e}"),
-            Self::InvalidColor {
-                x,
-                y,
-                rgba: [r, g, b, a],
-            } => write!(f, "Invalid color [{r},{g},{b},{a}] at {x}, {y}"),
-        }
-    }
-}
-impl std::error::Error for ImageDataError {}
 
 pub trait IntoImageForImageData {
     fn into_image_for_image_data(self) -> Result<DynamicImage, ImageDataError>;
@@ -51,16 +38,15 @@ pub trait IntoImageForImageData {
 
 impl IntoImageForImageData for &[u8] {
     fn into_image_for_image_data(self) -> Result<DynamicImage, ImageDataError> {
-        image::load_from_memory_with_format(self, image::ImageFormat::Png)
-            .map_err(ImageDataError::ImageError)
+        image::load_from_memory_with_format(self, image::ImageFormat::Png).map_err(From::from)
     }
 }
 
 impl IntoImageForImageData for &std::path::Path {
     fn into_image_for_image_data(self) -> Result<DynamicImage, ImageDataError> {
-        let mut reader = ImageReader::open(self).map_err(ImageDataError::IoError)?;
+        let mut reader = ImageReader::open(self)?;
         reader.set_format(image::ImageFormat::Png);
-        reader.decode().map_err(ImageDataError::ImageError)
+        reader.decode().map_err(From::from)
     }
 }
 
@@ -139,8 +125,7 @@ impl ImageData {
             top_left_corner.tile_x..=last_tile_x,
             top_left_corner.tile_y..=last_tile_y
         ) {
-            let tile =
-                TileDownloader::download(tile_x, tile_y).map_err(ImageDataError::ImageError)?;
+            let tile = TileDownloader::download(tile_x, tile_y)?;
 
             let initial_x_in_tile = match top_left_corner.tile_x == tile_x {
                 true => top_left_corner.x,
