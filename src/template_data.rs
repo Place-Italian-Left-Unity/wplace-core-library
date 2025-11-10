@@ -80,7 +80,7 @@ impl TemplateData {
         })
     }
 
-    pub fn get_template_area(&self) -> Result<ImageData, TemplateDataError> {
+    pub fn download_template_area_on_map(&self) -> Result<ImageData, TemplateDataError> {
         ImageData::from_site_coords(
             &self.top_left_corner,
             self.image.width as u16,
