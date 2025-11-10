@@ -28,7 +28,7 @@ pub enum ImageDataError {
     InvalidWidth,
     #[error("Height is 0")]
     InvalidHeight,
-    #[error("Invalid color at {x}, {y}")]
+    #[error("Invalid color at {x}, {y}: [{}, {}, {}, {}]", .rgba[0], .rgba[1], .rgba[2], .rgba[3])]
     InvalidColor { x: u32, y: u32, rgba: [u8; 4] },
 }
 
