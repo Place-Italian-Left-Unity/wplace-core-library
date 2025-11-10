@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub struct TileCoords {
     pub(crate) tile_x: u16,
     pub(crate) tile_y: u16,
@@ -36,14 +37,14 @@ impl TileCoords {
                 counter += 1;
                 continue;
             } else if character == ',' || character == ')' {
-                is_writing = false;
                 match counter {
-                    1 => out.x = buff.parse()?,
-                    2 => out.y = buff.parse()?,
-                    3 => out.tile_x = buff.parse()?,
-                    4 => { out.tile_y = buff.parse()?; break; },
+                    1 => out.tile_x = buff.parse()?,
+                    2 => out.tile_y = buff.parse()?,
+                    3 => out.x = buff.parse()?,
+                    4 => { out.y = buff.parse()?; break; },
                     _ => unreachable!()
                 }
+                is_writing = false;
                 buff.clear();
                 continue;
             };
