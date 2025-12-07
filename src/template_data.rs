@@ -5,11 +5,25 @@ use crate::{
     tile_coords::{TileCoords, TileCoordsError},
 };
 
+pub enum LocationData {
+    Name(String),
+    Nominatim(NominatimData),
+}
+
+impl LocationData {
+    pub fn get_name(&self) -> &str {
+        match self {
+            Self::Name(v) => &v,
+            Self::Nominatim(v) => &v.display_name,
+        }
+    }
+}
+
 pub struct TemplateData {
     name: String,
     top_left_corner: TileCoords,
     center_coordinates: MapCoords,
-    nominatim_data: NominatimData,
+    location_data: LocationData,
     image: ImageData,
     file_name: String,
 }
@@ -33,6 +47,7 @@ impl TemplateData {
         name: impl ToString,
         top_left_corner_coords_str: &str,
         file_path: P,
+        location_name: Option<String>,
     ) -> Result<Self, TemplateDataError> {
         let top_left_corner = TileCoords::parse_tile_coords_string(top_left_corner_coords_str)?;
         let file_path = file_path.as_ref();
@@ -42,7 +57,7 @@ impl TemplateData {
             .to_str()
             .ok_or(TemplateDataError::NoFileName)?;
         let image = ImageData::new(std::fs::read(file_path)?.as_slice())?;
-        Self::new(name, top_left_corner, file_name, image)
+        Self::new(name, top_left_corner, file_name, image, location_name)
     }
 
     pub fn new(
@@ -50,6 +65,7 @@ impl TemplateData {
         top_left_corner: TileCoords,
         file_name: impl ToString,
         image: ImageData,
+        location_name: Option<String>,
     ) -> Result<Self, TemplateDataError> {
         let center_coordinates = MapCoords::from_tile_coords(
             &TileCoords {
@@ -65,15 +81,20 @@ impl TemplateData {
             name: name.to_string(),
             file_name: file_name.to_string(),
             top_left_corner,
-            nominatim_data: match NominatimData::load_data(&center_coordinates) {
-                Ok(v) => v,
-                Err(NominatimDataError::JSONDeserializeError {
-                    error: _,
-                    input_value: s,
-                }) if s.contains("Unable to geocode") => NominatimData {
-                    display_name: String::from("Unknown"),
+            location_data: match location_name {
+                Some(name) => LocationData::Name(name),
+                None => match NominatimData::load_data(&center_coordinates) {
+                    Ok(v) => LocationData::Nominatim(v),
+                    Err(NominatimDataError::JSONDeserializeError {
+                        error: _,
+                        input_value: s,
+                    }) if s.contains("Unable to geocode") => {
+                        LocationData::Nominatim(NominatimData {
+                            display_name: String::from("Unknown"),
+                        })
+                    }
+                    Err(e) => return Err(TemplateDataError::NominatimDataError(e)),
                 },
-                Err(e) => return Err(TemplateDataError::NominatimDataError(e)),
             },
             center_coordinates,
             image,
@@ -93,8 +114,8 @@ impl TemplateData {
         &self.name
     }
 
-    pub fn get_nominatim_data(&self) -> &NominatimData {
-        &self.nominatim_data
+    pub fn get_location_data(&self) -> &LocationData {
+        &self.location_data
     }
 
     pub fn get_top_left_corner(&self) -> &TileCoords {
