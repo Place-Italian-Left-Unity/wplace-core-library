@@ -65,6 +65,19 @@ impl TileCoords {
         Ok(out)
     }
 
+    pub fn sum_x_y(&self, x: u16, y: u16) -> TileCoords {
+        let tile_x = self.tile_x + ((self.x + x) / 1000);
+        let tile_y = self.tile_y + ((self.y + y) / 1000);
+        let x = (self.x + x) % 1000;
+        let y = (self.y + y) % 1000;
+        TileCoords {
+            tile_x,
+            tile_y,
+            x,
+            y,
+        }
+    }
+
     pub fn get_x(&self) -> u16 {
         self.x
     }
