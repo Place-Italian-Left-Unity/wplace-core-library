@@ -42,12 +42,25 @@ impl ImageComparison {
         let mut different_px = Vec::new();
 
         for (x, y, pixel) in template_image.image.pixels() {
-            if pixel.0 == unsafe { current_image.image.unsafe_get_pixel(x, y).0 } {
+            let template_pixel = pixel.0;
+            let [_, _, _, template_alpha] = template_pixel;
+            if template_alpha != 255 {
+                continue;
+            }
+
+            let current_pixel = unsafe { current_image.image.unsafe_get_pixel(x, y).0 };
+
+            if template_pixel == current_pixel {
                 continue;
             }
 
             // Color validity can't fail because it has been checked in the Image already
-            let color = unsafe { Color::try_from(pixel.0).unwrap_unchecked() };
+            let color = unsafe { Color::try_from(template_pixel).unwrap_unchecked() };
+
+            let [_, _, _, current_alpha] = current_pixel;
+            if color == Color::Transparent && current_alpha < 255 {
+                continue;
+            }
 
             match difference_color_count.get_mut(&color) {
                 Some(v) => *v += 1,
