@@ -25,9 +25,9 @@ impl TileCoords {
 
     pub fn parse_tile_coords_string(v: &str) -> Result<Self, TileCoordsError> {
         let mut buff = String::with_capacity(4);
-        
+
         let mut out = Self::new(0, 0, 0, 0);
-        
+
         let mut is_writing = false;
         let mut last_character = ' ';
         let mut counter = 0;
@@ -41,24 +41,27 @@ impl TileCoords {
                     1 => out.tile_x = buff.parse()?,
                     2 => out.tile_y = buff.parse()?,
                     3 => out.x = buff.parse()?,
-                    4 => { out.y = buff.parse()?; break; },
-                    _ => unreachable!()
+                    4 => {
+                        out.y = buff.parse()?;
+                        break;
+                    }
+                    _ => unreachable!(),
                 }
                 is_writing = false;
                 buff.clear();
                 continue;
             };
-            
+
             if is_writing {
                 match counter {
                     1..=4 => buff.push(character),
-                    _ => unreachable!()
+                    _ => unreachable!(),
                 }
             }
-            
+
             last_character = character;
         }
-        
+
         Ok(out)
     }
 
