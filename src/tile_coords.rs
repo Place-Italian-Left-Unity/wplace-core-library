@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 #[derive(Debug)]
 pub struct TileCoords {
     pub(crate) tile_x: u16,
@@ -89,5 +91,11 @@ impl TileCoords {
     }
     pub fn get_tile_y(&self) -> u16 {
         self.tile_y
+    }
+}
+
+impl Display for TileCoords {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "(Tl X: {}, Tl Y: {}, X: {}, Y: {})", self.tile_x, self.tile_y, self.x, self.y)
     }
 }
