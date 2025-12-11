@@ -6,6 +6,7 @@ pub mod color;
 pub mod image_comparison;
 pub mod image_data;
 pub mod map_coords;
+pub mod metadata;
 pub mod nominatim_data;
 pub mod template_data;
 pub mod tile_coords;

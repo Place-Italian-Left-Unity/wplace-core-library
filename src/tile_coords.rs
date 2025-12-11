@@ -96,6 +96,10 @@ impl TileCoords {
 
 impl Display for TileCoords {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "(Tl X: {}, Tl Y: {}, X: {}, Y: {})", self.tile_x, self.tile_y, self.x, self.y)
+        write!(
+            f,
+            "(Tl X: {}, Tl Y: {}, Px X: {}, Px Y: {})",
+            self.tile_x, self.tile_y, self.x, self.y
+        )
     }
 }
